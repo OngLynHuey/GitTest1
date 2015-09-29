@@ -6,7 +6,7 @@
    "javascript": [
       "https://code.jquery.com/jquery-2.1.4.js",
       "https://cdnjs.cloudflare.com/ajax/libs/q.js/1.4.1/q.js",
-      "http://jqueryvalidation.org/files/dist/jquery.validate.min.js",
+      "https://jqueryvalidation.org/files/dist/jquery.validate.min.js",
       "../lib/intel-rally-app.js",
       "../lib/mixin/pretty-alert.js",
       "../lib/mixin/window-listener.js",

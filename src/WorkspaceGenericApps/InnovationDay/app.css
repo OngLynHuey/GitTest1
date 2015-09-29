@@ -4,13 +4,13 @@
 .ideawrapper{
 	font-size:14px;
 	font-weight:bold;
-	font-style: italic;
+	/* font-style: italic; */
 	margin-bottom:5px;
 	color:#008000;/* :#085478; */
 }
 .idea-grid {
 	margin:auto;
-	margin-top: 10px;
+	padding-top: 10px;
 	width:90%;
 	text-align:center;
 }
@@ -20,4 +20,14 @@
 }
 input#ideaTxt-inputEl,input#whyTxt-inputEl {
    /*  width: 100%; */
+}
+div#rallyIdeaGrid {
+    margin-top: 15px;
+}
+.rally-idea-grid  .x-panel-header .x-column-header-inner{
+  background-color: whitesmoke;
+}
+.rally-idea-grid .x-panel-header-text {
+  color: #40d0ed;
+	font-weight:bold;
 }

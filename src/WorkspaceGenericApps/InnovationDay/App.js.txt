@@ -15,8 +15,8 @@
 			xtype: 'container',
 			id: 'idea_wrapper',
 			cls: 'ideawrapper',
-			html: ['<center><p id="release_info"></p>',
-				'<p>Please add your Ideas or Vote. You can vote only once. We appreciate your ideas and feeback. Thank you!</p>',
+			html: ['<center><div id="release_info"></div>',
+				'<p>Please add your ideas or vote. You can vote only once. We appreciate your ideas and feeback. Thank you!</p>',
 				'</center>'
 			].join('\n')
 			},{
@@ -52,52 +52,20 @@
 			cls:'idea-grid'
 			}
 		],
-		/**___________________________________ DATA STORE METHOD ___________________________________*/	
-		_loadCurrentReleasesbyObjectId: function(){
-			var me=this,
-				store = Ext.create('Rally.data.wsapi.Store',{
-					model: 'Release',
-					limit: Infinity,
-					autoLoad:false,
-					fetch: ['Name', 'ObjectID', 'Theme'],
-					context:{
-						workspace: me.getContext().getWorkspace()._ref,
-						project: null
-					},
-					filters:[{
-						property:'ObjectID',
-						value: me.currentRelease.data.ObjectID
-					}]
+		_createGridStore: function(){
+			var me = this;
+			me.voted = false;
+			me.ideaOwnerUserObjectId = Rally.data.PreferenceManager._getCurrentUserRef().replace("/user/","");
+			var themedata = me.currentRelease.data.Theme.length> 0 ? JSON.parse(atob(me.currentRelease.data.Theme)):{};
+			//find if they have voted or not 
+			var votedUser = _.pluck(themedata,'voteCount');
+			
+			_.each(votedUser, function(user){
+					var a = user.indexOf(me.ideaOwnerUserObjectId);
+					if(a > -1) {me.voted = true; return;}
 				});
-			return me.reloadStore(store).then(function(store){ return store.getRange(); });				
+			me._renderGrid(themedata);
 		},
-		_loadReleasesBetweenDates: function(projectRecord, startDate, endDate){
-			var me=this,
-				store = Ext.create('Rally.data.wsapi.Store',{
-					model: 'Release',
-					limit: Infinity,
-					autoLoad:false,
-					fetch: ['Name', 'ObjectID', 'ReleaseDate', 'ReleaseStartDate', 'Theme'],
-					context:{
-						workspace: me.getContext().getWorkspace()._ref,
-						project: null
-					},
-					filters:[{
-						property:'Project.ObjectID',
-						value: projectRecord.data.ObjectID
-					},{
-						property:'ReleaseDate',
-						operator:'>',
-						value: new Date(startDate).toISOString()
-					},{
-						property:'ReleaseStartDate',
-						operator:'<',
-						value: new Date(endDate).toISOString()
-					}]
-				});
-			return me.reloadStore(store).then(function(store){ return store.getRange(); });
-		},
-		/**___________________________________ Grid Config ___________________________________*/
 		_getColumnConfig: function(){
 			var me = this;
 			var columnConfiguration = [
@@ -136,20 +104,20 @@
 				}];	
 			return columnConfiguration;
 		},
-		_createGridStore: function(){
-			var me = this;
-			me.voted = false;
-			me.ideaOwnerUserObjectId = Rally.data.PreferenceManager._getCurrentUserRef().replace("/user/","");
-			var themedata = me.currentRelease.data.Theme.length> 0 ? JSON.parse(atob(me.currentRelease.data.Theme)):{};
-			//find if they have voted or not 
-			var votedUser = _.pluck(themedata,'voteCount');
-			_.each(votedUser, function(user){
-					var a = user.indexOf(me.ideaOwnerUserObjectId);
-					if(a > -1) {me.voted = true; return;}
-				});
-			me._renderGrid(themedata);
+		_validation: function(){
+			var validation = "";
+			if(typeof Ext.getCmp('ideaTxt').value !="undefined"){
+				if(Ext.getCmp('ideaTxt').value.length > 100) {validation += "<p>The maximum length for IDEA field is 100.</p>"; }	
+				if(Ext.getCmp('ideaTxt').value.length === 0){	validation += "<p>The IDEA field cannot be empty.</p>";	}				
+			}else{
+				validation += "<p>The IDEA field cannot be empty.</p>";									
+			}
+			
+			if(typeof Ext.getCmp('whyTxt').value !="undefined" && Ext.getCmp('whyTxt').value.length > 100) {
+				validation += "<p>The maximum length for WHY field is 100.</p>";
+			}
+			return validation;
 		},
-		/**___________________________________ Grid Render ___________________________________*/
 		_renderGrid: function(themedata){
 			var me = this;
 			me.firstTime = false;
@@ -158,7 +126,6 @@
 
 			}else{
 				//hack as adding record the first time didnt work with mystore.loadData()
-				//TODO add the first record with LoadData()
 				themedata = [{
 					Ideas: "",
 					Why: "",
@@ -171,12 +138,12 @@
 			var gridStore = Ext.create('Rally.data.custom.Store',{
 					data: themedata
 			});
-			//API Docs: https://help.rallydev.com/apps/2.0/doc/
+
+				//API Docs: https://help.rallydev.com/apps/2.0/doc/
 			Ext.create('Ext.Container', {
 				items:[{
 					xtype: 'rallygrid',
 					id:'rallyIdeaGrid',
-					cls:'rally-idea-grid',
 					enableEditing: false,
 					autoScroll: true,
 					height: 800,
@@ -196,6 +163,24 @@
 				}],
 				renderTo:'ideaGrid'
 			});					
+		},
+		_loadCurrentReleasesbyObjectId: function(){
+			var me=this,
+				store = Ext.create('Rally.data.wsapi.Store',{
+					model: 'Release',
+					limit: Infinity,
+					autoLoad:false,
+					fetch: ['Name', 'ObjectID', 'Theme'],
+					context:{
+						workspace: me.getContext().getWorkspace()._ref,
+						project: null
+					},
+					filters:[{
+						property:'ObjectID',
+						value: me.currentRelease.data.ObjectID
+					}]
+				});
+			return me.reloadStore(store).then(function(store){ return store.getRange(); });				
 		},
 		_addIdeaToGrid: function(){
 			var me = this;
@@ -222,7 +207,7 @@
 						owner: me._guid(),
 						Vote: ""
 					}];
-					me.voted = true;//you get to either vote or add ideas
+					 
 					if(me.firstTime){
 						me.firstTime = false;
 						myStore.loadData(newidea,false);
@@ -243,57 +228,69 @@
 			if (me.firstTime) 
 				Ext.getCmp('rallyIdeaGrid').hide();
 			//upgrade the grid with the value			
-		},	
-		/**___________________________________ Saving Records ___________________________________*/
-		_setReleaseThemeRecord: function(str){
-			var me=this,
-				deferred = Q.defer();	
-			if(str.length >= 32768) 
-				deferred.reject('Theme field for ' + me.currentRelease.data.Name + ' ran out of space! Cannot save');
-			else {
-				me.currentRelease.set('Theme',str);
-				me.currentRelease.save({ 
-					callback:function(record, operation, success){
-						if(!success) deferred.reject('Failed to add new idea to the Release: ' + me.currentRelease.data.Name);
-						else deferred.resolve(me.currentRelease);
-					}
-				});
-			}
-			return deferred.promise;			
 		},
-		_saveVote:function(votedrecord){
-			var me = this;
-			var resultStrAfterVoted;
-			return me._loadCurrentReleasesbyObjectId()
-			.then(function(record){
-				var recordChangedId = votedrecord.data.owner;
-				var resultObj = JSON.parse(atob(record[0].data.Theme));
-				_.each(resultObj,function(r,key){
-					if(r.owner === recordChangedId)
-					{
-						r.voteCount.push(me.ideaOwnerUserObjectId);
-						var resultStrAfterVoted = btoa(JSON.stringify(resultObj, null, '\t'));
-						me._setReleaseThemeRecord(resultStrAfterVoted);
-					}
+		_loadReleasesBetweenDates: function(projectRecord, startDate, endDate){
+			var me=this,
+				store = Ext.create('Rally.data.wsapi.Store',{
+					model: 'Release',
+					limit: Infinity,
+					autoLoad:false,
+					fetch: ['Name', 'ObjectID', 'ReleaseDate', 'ReleaseStartDate', 'Theme'],
+					context:{
+						workspace: me.getContext().getWorkspace()._ref,
+						project: null
+					},
+					filters:[{
+						property:'Project.ObjectID',
+						value: projectRecord.data.ObjectID
+					},{
+						property:'ReleaseDate',
+						operator:'>',
+						value: new Date(startDate).toISOString()
+					},{
+						property:'ReleaseStartDate',
+						operator:'<',
+						value: new Date(endDate).toISOString()
+					}]
 				});
-				//edit record by saving voteCount
-				//save it
+			return me.reloadStore(store).then(function(store){ return store.getRange(); });
+	},
+		_setReleaseThemeRecord: function(str){
+		var me=this,
+			deferred = Q.defer();	
+			/* newidea = me.currentRelease.data.Theme.length > 0 ? newidea.concat(JSON.parse(atob(me.currentRelease.data.Theme))) : newidea;
+			str = btoa(JSON.stringify(newidea, null, '\t')); */
+		if(str.length >= 32768) 
+			deferred.reject('Theme field for ' + me.currentRelease.data.Theme + ' ran out of space! Cannot save');
+		else {
+			me.currentRelease.set('Theme',str);
+			me.currentRelease.save({ 
+				callback:function(record, operation, success){
+					if(!success) deferred.reject('Failed to add new idea to the Release: ' + me.currentRelease.data.Name);
+					else deferred.resolve(me.currentRelease);
+				}
 			});
-		},		
-		/**___________________________________ Validation___________________________________*/
-		_validation: function(){
-			var validation = "";
-			if(typeof Ext.getCmp('ideaTxt').value !="undefined"){
-				if(Ext.getCmp('ideaTxt').value.length > 100) {validation += "<p>The maximum length for IDEA field is 100.</p>"; }	
-				if(Ext.getCmp('ideaTxt').value.length === 0){	validation += "<p>The IDEA field cannot be empty.</p>";	}				
-			}else{
-				validation += "<p>The IDEA field cannot be empty.</p>";									
-			}
-			
-			if(typeof Ext.getCmp('whyTxt').value !="undefined" && Ext.getCmp('whyTxt').value.length > 100) {
-				validation += "<p>The maximum length for WHY field is 100.</p>";
-			}
-			return validation;
+		}
+		return deferred.promise;			
+	},
+		_saveVote:function(votedrecord){
+		var me = this;
+		var resultStrAfterVoted;
+		return me._loadCurrentReleasesbyObjectId()
+		.then(function(record){
+			var recordChangedId = votedrecord.data.owner;
+			var resultObj = JSON.parse(atob(record[0].data.Theme));
+			_.each(resultObj,function(r,key){
+				if(r.owner === recordChangedId)
+				{
+					r.voteCount.push(me.ideaOwnerUserObjectId);
+					var resultStrAfterVoted = btoa(JSON.stringify(resultObj, null, '\t'));
+					me._setReleaseThemeRecord(resultStrAfterVoted);
+				}
+			});
+			//edit record by saving voteCount
+			//save it
+		});
 		},
 		_guid: function() {
 			function s4() {
