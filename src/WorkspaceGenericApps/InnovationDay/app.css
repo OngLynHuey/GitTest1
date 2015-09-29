@@ -6,16 +6,18 @@
 	font-weight:bold;
 	font-style: italic;
 	margin-bottom:5px;
-	color:#085478;
+	color:#008000;/* :#085478; */
 }
 .idea-grid {
 	margin:auto;
 	margin-top: 10px;
-	border: solid red 1px;
 	width:90%;
 	text-align:center;
 }
 .idea-innerwrapper{
 	margin:auto;
 		width:90%;
+}
+input#ideaTxt-inputEl,input#whyTxt-inputEl {
+   /*  width: 100%; */
 }
