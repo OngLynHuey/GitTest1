@@ -9,6 +9,12 @@
 	color:#008000;/* :#085478; */
 }
 .idea-grid {
+	border:solid red 1px;
+}
+#rallyIdeaGrid_wrapper{
+ border:solid purple 1px;
+}
+.idea-grid {
 	margin:auto;
 	padding-top: 10px;
 	width:90%;
@@ -17,27 +23,26 @@
 .idea-innerwrapper{
 	margin:auto;
 		width:90%;
-}
+} 
 input#ideaTxt-inputEl,input#whyTxt-inputEl {
    /*  width: 100%; */
 }
 div#rallyIdeaGrid {
-    margin-top: 15px;
+border: solid orange 1px;
+    /* margin-top: 15px; */
 }
 
 #release_info {
 	float: left;
 	margin-left: 40%;
 	font-size: 14px;
-	background-color: #085478;
-	color: white;
+	font-weight: bold;
 	padding-left: 5px;
 	padding-right: 5px;
-	border: solid yellow 1px;
 }
-.fa-thumbs-o-up{
+.fa-check-square-o{
 	 color:green;
-	 font-size :2.5em;
+	 font-size :2em;
 }
 .fa-undo {
 	color: orange;
@@ -50,16 +55,26 @@ div#rallyIdeaGrid {
 	color: black;
 	border-bottom: solid gray 1px;
 }
-i.fa.fa-undo:hover, i.fa.fa-thumbs-o-up:hover {
+i.fa.fa-undo:hover, i.fa-check-square-o:hover {
    cursor:pointer;
 }
 i.fa.fa-lightbulb-o {
 	font-size: 2.5em;
-	color: yellow;
-	background-color: #085478;
+	text-shadow: 3px 3px 0px yellow, 9px 8px 0px rgba(0, 0, 0, 0.15);
+/* 	color: yellow;
+	background-color: #085478; */
 ;
 }
 #refreshgrid{
 	padding-left: 5%;
   padding-top: 1%;
+}
+.singup-count{
+	text-align: center;
+	text-decoration:underline;
+	color: green;
+  font-weight: bold;
+}
+.singup-count:hover{
+	cursor:pointer;
 }

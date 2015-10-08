@@ -3,6 +3,9 @@
 	Ext.define('Intel.InnovationDay', {
 		extend: 'Intel.lib.IntelRallyApp',
 		componentCls: 'app',
+		requires:[
+			'Intel.lib.component.IntelPopup'
+		],
 		mixins: [
 			'Intel.lib.mixin.PrettyAlert',
 			'Intel.lib.mixin.UserAppsPreference',
@@ -10,13 +13,13 @@
 			'Intel.lib.mixin.CustomAppObjectIDRegister'
 		],
 		userAppsPref: 'intel-innovationday-apps-preference',
-		releaseFields:[],
+		releaseFields:['Name', 'ObjectID', 'ReleaseDate', 'ReleaseStartDate', 'Theme'],
 		items: [{
 			xtype: 'container',
 			id: 'idea_wrapper',
 			cls: 'ideawrapper',
 			html: ['<div id="release_info">INNOVATION DAY <i class="fa fa-lightbulb-o"></i></div>',
-				'<div class = "indicator"><i class="fa fa-undo"></i> = Undo Voting<br/> <i class="fa fa-thumbs-o-up"></i> = Vote</div>'
+				'<div class = "indicator"><i class="fa fa-undo"></i> = Click to Undo Sign Up<br/> <i class="fa fa-check-square-o"></i>= Click to Sign Up</div>'
 			].join('\n')
 			},{
 			xtype: 'container',
@@ -51,6 +54,8 @@
 			},{
 				xtype: 'container',
 				id: 'ideaGrid',
+				layout:'fit',
+				autoScroll:false, 
 				cls:'idea-grid'
 			}
 		],
@@ -99,6 +104,24 @@
 				});
 			return me.reloadStore(store).then(function(store){ return store.getRange(); });
 		},
+		_getWorkSpaceActiveUsers: function(){
+			var me=this,
+				config = {
+					model: 'User',
+					filters: [{
+						property: 'Disabled',
+						value:false
+					}],
+					fetch:['FirstName', 'ObjectID', 'lastName', 'EmailAddress'],
+					context:{ 
+						workspace:me.getContext().getWorkspace()._ref
+					}
+				};
+			return me.parallelLoadWsapiStore(config).then(function(store){
+				me.UserStore = store;
+				return store;
+			});			
+		},
 		/**___________________________________ Grid Config ___________________________________*/
 		_getColumnConfig: function(){
 			var me = this;
@@ -111,13 +134,13 @@
 					dataIndex: "Why",
 					flex:2
 				},{
-					header: "Vote Count", 
+					header: " Sign Up Count ", 
 					dataIndex: "voteCount",
 					renderer:function(val, meta, record){
-						return val.length;
+						return Ext.String.format('<div class ="singup-count" title="Click to see the detail list">{0}</div>', val.length);	
 					}
 				},{
-					header: "Vote", 
+					header: "Sign Up", 
 					dataIndex: "Vote",		
 					renderer: function (v, m, r) {
 						if(me._isIdeaOwner(r.data.owner)){
@@ -125,13 +148,13 @@
 							Ext.defer(function () {
 								Ext.widget('button', {
 										renderTo: id,
-										text: 'Delete',
-										width: 60
+										text: '<i class="fa fa-trash-o fa-lg"></i>  Delete',
+										width: 70
 								});
-							}, 50); 
+							}, 70); 
 						return Ext.String.format('<div id="{0}"></div>', id);							
 						}else {
-							var voteIcon =  me._alreadyVoted(r.data.voteCount) ? '<i class="fa fa-undo"></i>' : '<i class="fa fa-thumbs-o-up"></i>';							
+							var voteIcon =  me._alreadyVoted(r.data.voteCount) ? '<i class="fa fa-undo"></i>' : '<i class="fa fa-check-square-o"></i>';							
 							return voteIcon;
 						}
 					}
@@ -181,13 +204,56 @@
 			if(! Ext.getCmp('refreshButton')){
 				Ext.create('Ext.Button', {
 					id:'refreshButton',
-					text: 'Click here to refresh grid for new changes',
+					text: '<i class="fa fa-refresh  fa-2x"></i> REFRESH',
 					renderTo: 'refreshgrid',
 					handler: function() {
 							me._refreshGrid();
 					}
 				});
 			}
+		},
+		_getUserDetail: function(record){
+			var me = this;
+			var filteredUserStore = [];
+			_.each(record.data.voteCount, function(v){			
+			var filteredUserStoretemp = _.filter(me.UserStore.getRange(),function(user,key){return 		user.data.ObjectID === parseInt(v)}); 
+			filteredUserStore = filteredUserStore.concat(filteredUserStoretemp);
+		 });
+			userDetailStore = Ext.create('Rally.data.custom.Store', {
+					autoLoad: false,
+					model: 'User',
+					data: filteredUserStore
+			});
+			if(!me.Popup){
+				me.Popup = me.add({
+					xtype: 'intelpopup', 
+					width: 0.25 * me.getWidth(), 
+					height: 0.3 * me.getHeight()
+				});
+			}
+			
+			me.Popup.setContent({
+				xtype:'container',
+				items:[{
+					xtype:'rallygrid',
+					title: 'List of Sign up Users',
+					columnCfgs:[{
+						header:	'First Name',
+						dataIndex:'FirstName'
+						},{
+						header:	'Last Name',
+						dataIndex:'LastName'
+						},{
+						header:	'Email Address',
+						dataIndex:'EmailAddress',
+						flex:2
+						}],
+					store:userDetailStore
+				}]
+				
+			});
+			me.Popup.show();
+			//$('.x-tab-inner').css('width', '130px');
 		},
 		_renderGrid: function(themedata){
 			var me = this;
@@ -212,18 +278,32 @@
 				me._renderGridRefresh();				
 			}
 			var gridStore = Ext.create('Rally.data.custom.Store',{
-					data: themedata
-			});
+		 		pageSize:10, 
+				data: themedata,
+				autoLoad: false
+				});
 			//API Docs: https://help.rallydev.com/apps/2.0/doc/
-			Ext.create('Ext.Container', {
-				items:[{
-					xtype: 'rallygrid',
+			var gridConfig =  Ext.create('Rally.ui.grid.Grid', {
 					id:'rallyIdeaGrid',
-					enableEditing: false,
-					autoScroll: true,
-					height: 800,
-					showPagingToolbar: false,
 					columnCfgs: me._getColumnConfig(),
+ 					pagingToolbarCfg: {
+						pageSizes: [10, 15, 25, 100],
+						autoRender: true,
+						resizable: false,
+						changePageSize: function(combobox, newSize) {
+							newSize = newSize[0].get('value');
+							if(this._isCurrentPageSize(newSize)) return false;
+							else {
+								Ext.getCmp('rallyIdeaGrid').reconfigure(Ext.create('Rally.data.custom.Store', {
+									pageSize:newSize,
+									data: themedata,
+									autoLoad: false
+								}));
+								this._reRender();
+								return true;
+							}
+						}
+					}, 
 					listeners: {
 						cellclick: function(table, td, cellIndex, record, tr, rowIndex){
 							var action = me._getVotingAction(record.data.owner,record.data.voteCount);
@@ -235,7 +315,7 @@
 								}
 							}									
 							//me.voted = me._alreadyVoted(record.data.voteCount);
-							if (cellIndex === 4){
+							if (cellIndex === 3){
 								if (action === "Vote"){
 									record.data.voteCount.push(me.currentUserObjectId);
 									me._saveVote(record);
@@ -243,17 +323,19 @@
 								}else	if(action === "Delete"){
 									Ext.MessageBox.confirm('Confirm', 'Are you sure you want to delete the idea?',deletedRecord);
 								}else if (action === "Undo"){
-									me._undoVoting(record);
+									me._undoVoting(record);	
 									record.data.voteCount.splice(record.data.voteCount.indexOf(me.currentUserObjectId),1);
-									Ext.getCmp('rallyIdeaGrid').view.refresh();
+									Ext.getCmp('rallyIdeaGrid').view.refresh();	
 								}								
+							}
+							if (cellIndex === 2){
+								 me._getUserDetail(record);
 							}
 						}
 					}, 
 					store: gridStore
-				}],
-				renderTo:'ideaGrid'
-			});					
+			});
+			Ext.getCmp('ideaGrid').add(gridConfig);		 	
 		},
 		_addIdeaToGrid: function(){
 			var me = this;
@@ -261,7 +343,7 @@
 			var ideaButton = {
 				xtype: 'button',
 				id: 'addIdeaBtn',
-				text: 'Add Idea',
+				text: 'ADD IDEA',
 				scope: me,
 				handler: function(){
 					//add the idea nd why to the grid
@@ -284,17 +366,26 @@
 					me.voted = true;//you get to either vote or add ideas
 					if(me.firstTime){
 						me.firstTime = false;
+						me._renderGridRefresh();	
 						myStore.loadData(newidea,false);
 						Ext.getCmp('rallyIdeaGrid').show();
 					}else{
 						myStore.loadData(newidea,true);
 						Ext.getCmp('rallyIdeaGrid').show();
 					}
-					newidea = me.currentRelease.data.Theme.length > 0 ? newidea.concat(JSON.parse(atob(me.currentRelease.data.Theme))) : newidea;
-					str = btoa(JSON.stringify(newidea, null, '\t'));
-					me._setReleaseThemeRecord(str);
-					Ext.getCmp('ideaTxt').setValue("");
-					Ext.getCmp('whyTxt').setValue("");
+					return me._loadCurrentReleasesbyObjectId()
+						.then(function(record){
+							var savedresultObj = record[0].data.Theme;
+							newidea = savedresultObj.length > 0 ? newidea.concat(JSON.parse(atob(savedresultObj))) : newidea;
+							str = btoa(JSON.stringify(newidea, null, '\t'));
+							me._setReleaseThemeRecord(str);
+							Ext.getCmp('ideaTxt').setValue("");
+							Ext.getCmp('whyTxt').setValue("");
+						})
+						.fail(function(reason){
+								me.alert('ERROR', reason); 
+						})
+						.done();
 					}
 				}
 			};
@@ -341,7 +432,6 @@
 		_saveVote:function(votedrecord){
 			var me = this;
 			var foundSavedRecord = false;
-			var resultStrAfterVoted;
 			return me._loadCurrentReleasesbyObjectId()
 			.then(function(record){
 				var recordChangedId = votedrecord.data.id;
@@ -367,7 +457,6 @@
 		_deleteRecord: function(deletedRecord){
 			var me = this;
 			var foundDeletedRecord = false;
-			var resultStrAfterVoteDeleted;
 			return me._loadCurrentReleasesbyObjectId()
 				.then(function(record){
 					var recordDeltedId = deletedRecord.data.id;
@@ -391,28 +480,26 @@
 		},
 		_undoVoting: function(undoneRecord){
 			var me = this;
-			var foundEditedRecord = false,
-				resultStrAfterUndoVote;
+			var foundEditedRecord = false;
 				return me._loadCurrentReleasesbyObjectId()
-				.then(function(record){
+				.then(function(releaseRecord){
 					var recordChangedId = undoneRecord.data.id;
-					var resultObj = JSON.parse(atob(record[0].data.Theme));	
+					var resultObj = JSON.parse(atob(releaseRecord[0].data.Theme));	
 					_.each(resultObj,function(r,key){
-						if(r.id === recordChangedId && me._alreadyVoted(undoneRecord.data.voteCount))
+						if(r.id === recordChangedId /* && me._alreadyVoted(undoneRecord.data.voteCount) */)
 						{
 							var targetVoteRecordIndex = resultObj[key].voteCount.indexOf(me.currentUserObjectId);
 							resultObj[key].voteCount.splice(targetVoteRecordIndex,1);
-							var resultStrAfterUndoVote = btoa(JSON.stringify(resultObj, null, '\t'));
-							me._setReleaseThemeRecord(resultStrAfterUndoVote);
-							foundEditedRecord = true;
+							return false;
 						}
-						if (foundEditedRecord) return false;
-					});				
+					});	
+					var resultStrAfterUndoVote = btoa(JSON.stringify(resultObj, null, '\t'));
+					me._setReleaseThemeRecord(resultStrAfterUndoVote);						
 				})
 				.fail(function(reason){
 					me.alert('ERROR', reason); 
 				})
-				.done();				
+				.done();
 		},
 		/**___________________________________ Validation___________________________________*/
 		_validation: function(){
@@ -441,42 +528,43 @@
 				
 				me.setLoading('Loading Configuration');
 				me.currentUserObjectId = Rally.data.PreferenceManager._getCurrentUserRef().replace("/user/","");
-				me.configureIntelRallyApp()
+
+				return Q.all([
+					me._getWorkSpaceActiveUsers(),					//me.releaseFields =  ['Name', 'ObjectID', 'ReleaseDate', 'ReleaseStartDate','Theme','c_Theme']
+					me.configureIntelRallyApp()])
 				.then(function(){
-					//me.releaseFields =  ['Name', 'ObjectID', 'ReleaseDate', 'ReleaseStartDate','Theme','c_Theme']
 					var scopeProject = me.getContext().getProject();
-					return me.loadProject(scopeProject.ObjectID)
-					.then(function(scopeProjectRecord){
-						me.ProjectRecord = scopeProjectRecord;
-						me.loadAppsPreference(); /******** load stream 2 *****/
-					})
-					.then(function(appsPref){
-						me.AppsPref = appsPref;
-						var sixMonths = 1000*60*60*24*183;
-						var endDate = new Date();
-						return me._loadReleasesBetweenDates(me.ProjectRecord, (new Date()*1 - sixMonths), endDate);
-					})					
-					.then(function(releaseRecords){
-						me.ReleaseRecords = releaseRecords;
-						me.currentRelease = me.getScopedRelease(releaseRecords, me.ProjectRecord.data.ObjectID, null);
-						//$("#release_info").html("InnovationDay Ideas for Release: " + me.currentRelease.data.Name);
-					});					
+					return me.loadProject(scopeProject.ObjectID)							
+				})
+				.then(function(scopeProjectRecord){
+					me.ProjectRecord = scopeProjectRecord;
+					me.loadAppsPreference(); /******** load stream 2 *****/
+				})
+				.then(function(appsPref){
+					me.AppsPref = appsPref;
+					var sixMonths = 1000*60*60*24*183;
+					var endDate = new Date();
+					return me.loadAllReleases(me.ProjectRecord/* , (new Date()*1 - sixMonths), endDate */);
+				})					
+				.then(function(releaseRecords){
+					if (releaseRecords.length === 0){
+						me.alert("No Release attached")
+						return false;
+					}
+					me.ReleaseRecords = releaseRecords;
+					me.currentRelease = me.getScopedRelease(releaseRecords, me.ProjectRecord.data.ObjectID, null);
 				})
 				.then(function(){
-					//load current relese
-					//Write app code here
 					me._createGridStore();
-				})
-				.then(function(){
 					me._addIdeaToGrid();
-					me.setLoading(false);
-				})
+					me.setLoading(false);	
+				})				
 				.fail(function(reason){
 					me.setLoading(false);
 					me.alert('ERROR', reason); 
 				})
 				.done();
-			}
+		}
 	});
 }());
 

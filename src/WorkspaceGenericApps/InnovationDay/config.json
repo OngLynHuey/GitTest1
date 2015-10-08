@@ -13,6 +13,7 @@
       "../lib/mixin/user-apps-preference.js",
       "../lib/mixin/parallel-loader.js",
       "../lib/mixin/custom-app-objectid-register.js",
+      "../lib/component/intel-popup.js",
       "App.js"
    ],
    "css": [
